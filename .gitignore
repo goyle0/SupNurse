@@ -1,0 +1,22 @@
+# Node
+node_modules/
+npm-debug.log
+.yarn
+.yarnrc
+yarn-error.log
+dist
+.next
+
+# Python
+__pycache__/
+*.pyc
+
+# Docker
+*.env
+docker-compose.override.yml
+
+# OS
+.DS_Store
+
+# Editor
+.vscode
