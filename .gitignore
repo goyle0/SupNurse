@@ -22,3 +22,7 @@ docker-compose.override.yml
 
 # Editor
 .vscode
+# Python virtual environments
+venv/
+env/
+.venv/
