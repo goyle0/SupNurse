@@ -1,3 +1,5 @@
+// このファイルはHeaderコンポーネントです
+
 import {
     Box,
     Flex,
