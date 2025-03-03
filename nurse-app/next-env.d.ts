@@ -1,5 +1,3 @@
-// このファイルはNext.jsの環境宣言ファイルです
-
 /// <reference types="next" />
 /// <reference types="next/image-types/global" />
 
