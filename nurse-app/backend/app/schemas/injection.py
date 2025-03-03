@@ -1,8 +1,23 @@
 # このファイルはinjectionスキーマを定義します
 
-from pydantic import BaseModel
-from typing import Optional
+from pydantic import BaseModel, Field, validator
+from typing import Optional, Literal
 from datetime import datetime
+from enum import Enum
+
+class InjectionStatus(str, Enum):
+    """注射実施ステータス"""
+    SCHEDULED = "scheduled"
+    ADMINISTERED = "administered"
+    CANCELLED = "cancelled"
+
+class InjectionRoute(str, Enum):
+    """注射投与経路"""
+    SUBCUTANEOUS = "皮下注射"
+    INTRAMUSCULAR = "筋肉注射"
+    INTRAVENOUS = "静脈注射"
+    INTRADERMAL = "皮内注射"
+    OTHER = "その他"
 
 class InjectionBase(BaseModel):
     """注射実施ベーススキーマ"""
@@ -12,8 +27,15 @@ class InjectionBase(BaseModel):
     dose: str
     route: str
     scheduled_time: datetime
-    status: str  # 'scheduled', 'administered', 'cancelled'
+    status: InjectionStatus
     notes: Optional[str] = None
+    
+    @validator('route')
+    def validate_route(cls, v):
+        valid_routes = [route.value for route in InjectionRoute]
+        if v not in valid_routes:
+            raise ValueError(f"投与経路は以下のいずれかである必要があります: {', '.join(valid_routes)}")
+        return v
 
 class InjectionCreate(InjectionBase):
     """注射実施作成スキーマ"""
@@ -29,8 +51,17 @@ class InjectionUpdate(BaseModel):
     scheduled_time: Optional[datetime] = None
     administered_time: Optional[datetime] = None
     administered_by: Optional[str] = None
-    status: Optional[str] = None
+    status: Optional[InjectionStatus] = None
     notes: Optional[str] = None
+    
+    @validator('route')
+    def validate_route(cls, v):
+        if v is None:
+            return v
+        valid_routes = [route.value for route in InjectionRoute]
+        if v not in valid_routes:
+            raise ValueError(f"投与経路は以下のいずれかである必要があります: {', '.join(valid_routes)}")
+        return v
 
 class InjectionAdminister(BaseModel):
     """注射実施記録スキーマ"""

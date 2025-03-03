@@ -9,7 +9,7 @@ from app.database import get_db
 from app.dependencies import get_current_active_user
 from app.models.user import User
 from app.models.injection import Injection
-from app.schemas.injection import InjectionCreate, InjectionUpdate, Injection as InjectionSchema, InjectionAdminister
+from app.schemas.injection import InjectionCreate, InjectionUpdate, Injection as InjectionSchema, InjectionAdminister, InjectionStatus
 
 router = APIRouter()
 
@@ -103,15 +103,15 @@ async def administer_injection(
     if db_injection is None:
         raise HTTPException(status_code=404, detail="注射実施が見つかりません")
     
-    if db_injection.status == "administered":
+    if db_injection.status == InjectionStatus.ADMINISTERED:
         raise HTTPException(status_code=400, detail="この注射はすでに実施済みです")
     
-    if db_injection.status == "cancelled":
+    if db_injection.status == InjectionStatus.CANCELLED:
         raise HTTPException(status_code=400, detail="中止された注射は実施できません")
     
     db_injection.administered_time = administration.administered_time
     db_injection.administered_by = administration.administered_by
-    db_injection.status = "administered"
+    db_injection.status = InjectionStatus.ADMINISTERED
     if administration.notes:
         db_injection.notes = administration.notes
     
