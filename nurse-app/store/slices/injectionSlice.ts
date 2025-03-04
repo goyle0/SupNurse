@@ -1,3 +1,7 @@
+// これは注射情報を管理するRedux Sliceです
+
+// これは注射情報を管理するRedux Sliceです
+
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 export interface Injection {
