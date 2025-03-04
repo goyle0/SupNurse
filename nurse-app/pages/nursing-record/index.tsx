@@ -18,13 +18,36 @@ import {
     Select,
     useToast,
     SimpleGrid,
+    useDisclosure,
+    Modal,
+    ModalOverlay,
+    ModalContent,
+    ModalHeader,
+    ModalFooter,
+    ModalBody,
+    ModalCloseButton,
+    FormControl,
+    FormLabel,
+    Input,
+    Textarea,
+    RadioGroup,
+    Radio,
+    Stack,
+    NumberInput,
+    NumberInputField,
+    NumberInputStepper,
+    NumberIncrementStepper,
+    NumberDecrementStepper,
+    Checkbox,
+    FormHelperText,
 } from '@chakra-ui/react';
 import { AddIcon, EditIcon, TimeIcon } from '@chakra-ui/icons';
 import { FC, useEffect, useState } from 'react';
 import { Header } from '../../components/Header';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { NursingRecord, fetchNursingRecordStart, fetchNursingRecordSuccess, fetchNursingRecordFailure } from '../../store/slices/nursingRecordSlice';
+import { NursingRecord, fetchNursingRecordStart, fetchNursingRecordSuccess, fetchNursingRecordFailure, addNursingRecord } from '../../store/slices/nursingRecordSlice';
 import Head from 'next/head';
+import { nursingRecordAPI } from '../../utils/api';
 
 // モックデータ
 const mockNursingRecords: NursingRecord[] = [
@@ -78,6 +101,122 @@ const NursingRecordPage: FC = () => {
     const { nursingRecords, loading, error } = useAppSelector((state) => state.nursingRecord);
     const [selectedPatient, setSelectedPatient] = useState<string>('all');
     const toast = useToast();
+    const { isOpen, onOpen, onClose } = useDisclosure();
+
+    // 新規看護記録用の状態
+    const [newRecord, setNewRecord] = useState<Partial<NursingRecord>>({
+        patientId: '',
+        patientName: '',
+        recordType: 'observation',
+        content: '',
+        recordTime: new Date().toISOString().slice(0, 16), // 現在時刻をデフォルト値に
+        vitalSigns: {
+            temperature: undefined,
+            heartRate: undefined,
+            respiratoryRate: undefined,
+            bloodPressure: '',
+            oxygenSaturation: undefined,
+        },
+        createdBy: '現在のユーザー', // 実際のアプリでは認証済みユーザー名を使用
+    });
+
+    // バイタルサイン入力の表示制御
+    const [showVitalSigns, setShowVitalSigns] = useState<boolean>(true);
+
+    // 入力フィールドの変更ハンドラ
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+        const { name, value } = e.target;
+        setNewRecord({
+            ...newRecord,
+            [name]: value,
+        });
+    };
+
+    // バイタルサイン入力の変更ハンドラ
+    const handleVitalSignChange = (name: string, value: any) => {
+        setNewRecord({
+            ...newRecord,
+            vitalSigns: {
+                ...newRecord.vitalSigns,
+                [name]: value,
+            },
+        });
+    };
+
+    // 新規看護記録の送信ハンドラ
+    const handleSubmit = async () => {
+        try {
+            // 必須フィールドの検証
+            if (!newRecord.patientId || !newRecord.patientName || !newRecord.recordType ||
+                !newRecord.content || !newRecord.recordTime) {
+                toast({
+                    title: 'エラー',
+                    description: '必須項目をすべて入力してください',
+                    status: 'error',
+                    duration: 5000,
+                    isClosable: true,
+                });
+                return;
+            }
+
+            // バイタルサインが不要な場合は削除
+            const recordData = { ...newRecord };
+            if (!showVitalSigns) {
+                delete recordData.vitalSigns;
+            }
+
+            // 一時的なIDを生成（実際のアプリではバックエンドが生成）
+            const tempId = 'temp-' + Math.random().toString(36).substr(2, 9);
+
+            const nursingRecordData: NursingRecord = {
+                id: tempId,
+                ...recordData as Omit<NursingRecord, 'id'>,
+            };
+
+            // Reduxストアに追加
+            dispatch(addNursingRecord(nursingRecordData));
+
+            // APIを使用してバックエンドに送信（実際のアプリで使用）
+            // const response = await nursingRecordAPI.create(nursingRecordData);
+            // dispatch(addNursingRecord(response)); // バックエンドから返されたデータで更新
+
+            toast({
+                title: '成功',
+                description: '看護記録が作成されました',
+                status: 'success',
+                duration: 5000,
+                isClosable: true,
+            });
+
+            // フォームをリセットしてモーダルを閉じる
+            setNewRecord({
+                patientId: '',
+                patientName: '',
+                recordType: 'observation',
+                content: '',
+                recordTime: new Date().toISOString().slice(0, 16),
+                vitalSigns: {
+                    temperature: undefined,
+                    heartRate: undefined,
+                    respiratoryRate: undefined,
+                    bloodPressure: '',
+                    oxygenSaturation: undefined,
+                },
+                createdBy: '現在のユーザー',
+            });
+            setShowVitalSigns(true);
+            onClose();
+        } catch (error) {
+            toast({
+                title: 'エラー',
+                description: '看護記録の作成に失敗しました',
+                status: 'error',
+                duration: 5000,
+                isClosable: true,
+            });
+            console.error('看護記録作成エラー:', error);
+        }
+    };
 
     // 実際のアプリではAPIからデータを取得
     useEffect(() => {
@@ -168,7 +307,7 @@ const NursingRecordPage: FC = () => {
                         <Heading as="h1" size="xl">
                             看護記録
                         </Heading>
-                        <Button leftIcon={<AddIcon />} colorScheme="blue">
+                        <Button leftIcon={<AddIcon />} colorScheme="blue" onClick={onOpen}>
                             新規記録作成
                         </Button>
                     </Flex>
@@ -283,6 +422,177 @@ const NursingRecordPage: FC = () => {
                     )}
                 </Box>
             </Container>
+
+            {/* 新規看護記録作成モーダル */}
+            <Modal isOpen={isOpen} onClose={onClose} size="xl">
+                <ModalOverlay />
+                <ModalContent>
+                    <ModalHeader>新規看護記録作成</ModalHeader>
+                    <ModalCloseButton />
+                    <ModalBody pb={6}>
+                        <FormControl isRequired mb={4}>
+                            <FormLabel>患者ID</FormLabel>
+                            <Input
+                                name="patientId"
+                                value={newRecord.patientId}
+                                onChange={handleInputChange}
+                                placeholder="患者ID"
+                            />
+                        </FormControl>
+
+                        <FormControl isRequired mb={4}>
+                            <FormLabel>患者名</FormLabel>
+                            <Input
+                                name="patientName"
+                                value={newRecord.patientName}
+                                onChange={handleInputChange}
+                                placeholder="患者名"
+                            />
+                        </FormControl>
+
+                        <FormControl isRequired mb={4}>
+                            <FormLabel>記録種類</FormLabel>
+                            <RadioGroup
+                                name="recordType"
+                                value={newRecord.recordType}
+                                onChange={(value) => setNewRecord({ ...newRecord, recordType: value as NursingRecord['recordType'] })}
+                            >
+                                <Stack direction="row" spacing={4}>
+                                    <Radio value="observation">観察</Radio>
+                                    <Radio value="assessment">アセスメント</Radio>
+                                    <Radio value="intervention">介入</Radio>
+                                    <Radio value="evaluation">評価</Radio>
+                                </Stack>
+                            </RadioGroup>
+                        </FormControl>
+
+                        <FormControl isRequired mb={4}>
+                            <FormLabel>記録内容</FormLabel>
+                            <Textarea
+                                name="content"
+                                value={newRecord.content}
+                                onChange={handleInputChange}
+                                placeholder="看護記録の内容を入力"
+                                rows={4}
+                            />
+                        </FormControl>
+
+                        <FormControl isRequired mb={4}>
+                            <FormLabel>記録時間</FormLabel>
+                            <Input
+                                name="recordTime"
+                                type="datetime-local"
+                                value={newRecord.recordTime}
+                                onChange={handleInputChange}
+                            />
+                        </FormControl>
+
+                        <FormControl mb={4}>
+                            <Flex align="center" mb={2}>
+                                <FormLabel mb={0}>バイタルサイン</FormLabel>
+                                <Checkbox
+                                    isChecked={showVitalSigns}
+                                    onChange={(e) => setShowVitalSigns(e.target.checked)}
+                                    ml={2}
+                                >
+                                    バイタルサインを記録する
+                                </Checkbox>
+                            </Flex>
+
+                            {showVitalSigns && (
+                                <Box p={4} bg="gray.50" borderRadius="md">
+                                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                                        <FormControl>
+                                            <FormLabel fontSize="sm">体温 (℃)</FormLabel>
+                                            <NumberInput
+                                                min={35}
+                                                max={42}
+                                                step={0.1}
+                                                value={newRecord.vitalSigns?.temperature || ''}
+                                                onChange={(value) => handleVitalSignChange('temperature', parseFloat(value) || undefined)}
+                                            >
+                                                <NumberInputField placeholder="36.0" />
+                                                <NumberInputStepper>
+                                                    <NumberIncrementStepper />
+                                                    <NumberDecrementStepper />
+                                                </NumberInputStepper>
+                                            </NumberInput>
+                                        </FormControl>
+
+                                        <FormControl>
+                                            <FormLabel fontSize="sm">脈拍 (回/分)</FormLabel>
+                                            <NumberInput
+                                                min={40}
+                                                max={200}
+                                                step={1}
+                                                value={newRecord.vitalSigns?.heartRate || ''}
+                                                onChange={(value) => handleVitalSignChange('heartRate', parseInt(value) || undefined)}
+                                            >
+                                                <NumberInputField placeholder="80" />
+                                                <NumberInputStepper>
+                                                    <NumberIncrementStepper />
+                                                    <NumberDecrementStepper />
+                                                </NumberInputStepper>
+                                            </NumberInput>
+                                        </FormControl>
+
+                                        <FormControl>
+                                            <FormLabel fontSize="sm">呼吸数 (回/分)</FormLabel>
+                                            <NumberInput
+                                                min={8}
+                                                max={40}
+                                                step={1}
+                                                value={newRecord.vitalSigns?.respiratoryRate || ''}
+                                                onChange={(value) => handleVitalSignChange('respiratoryRate', parseInt(value) || undefined)}
+                                            >
+                                                <NumberInputField placeholder="16" />
+                                                <NumberInputStepper>
+                                                    <NumberIncrementStepper />
+                                                    <NumberDecrementStepper />
+                                                </NumberInputStepper>
+                                            </NumberInput>
+                                        </FormControl>
+
+                                        <FormControl>
+                                            <FormLabel fontSize="sm">血圧 (mmHg)</FormLabel>
+                                            <Input
+                                                placeholder="120/80"
+                                                value={newRecord.vitalSigns?.bloodPressure || ''}
+                                                onChange={(e) => handleVitalSignChange('bloodPressure', e.target.value)}
+                                            />
+                                            <FormHelperText>例: 120/80</FormHelperText>
+                                        </FormControl>
+
+                                        <FormControl>
+                                            <FormLabel fontSize="sm">SpO2 (%)</FormLabel>
+                                            <NumberInput
+                                                min={70}
+                                                max={100}
+                                                step={1}
+                                                value={newRecord.vitalSigns?.oxygenSaturation || ''}
+                                                onChange={(value) => handleVitalSignChange('oxygenSaturation', parseInt(value) || undefined)}
+                                            >
+                                                <NumberInputField placeholder="98" />
+                                                <NumberInputStepper>
+                                                    <NumberIncrementStepper />
+                                                    <NumberDecrementStepper />
+                                                </NumberInputStepper>
+                                            </NumberInput>
+                                        </FormControl>
+                                    </SimpleGrid>
+                                </Box>
+                            )}
+                        </FormControl>
+                    </ModalBody>
+
+                    <ModalFooter>
+                        <Button colorScheme="blue" mr={3} onClick={handleSubmit}>
+                            保存
+                        </Button>
+                        <Button onClick={onClose}>キャンセル</Button>
+                    </ModalFooter>
+                </ModalContent>
+            </Modal>
         </>
     );
 };
