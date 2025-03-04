@@ -1,3 +1,5 @@
+// このファイルはAPI呼び出し設定を含みます
+
 import axios from 'axios';
 
 // APIクライアントの設定

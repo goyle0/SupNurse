@@ -1,3 +1,5 @@
+# このファイルはinjectionモデルを定義します
+
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
 from sqlalchemy.orm import relationship
 
