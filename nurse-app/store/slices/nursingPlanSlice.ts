@@ -1,3 +1,5 @@
+// これは看護計画を管理するRedux Sliceです
+
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 export interface NursingPlan {

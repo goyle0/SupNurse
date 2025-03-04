@@ -1,3 +1,5 @@
+# このファイルはユーザースキーマを定義します
+
 from pydantic import BaseModel, EmailStr
 from typing import Optional
 

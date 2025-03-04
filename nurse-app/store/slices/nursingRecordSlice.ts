@@ -1,3 +1,7 @@
+// これは看護記録を管理するRedux Sliceです
+
+// これは看護記録のRedux Sliceです
+
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 export interface NursingRecord {

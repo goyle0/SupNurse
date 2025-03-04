@@ -1,3 +1,5 @@
+# このファイルは依存関係の解決用です
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt

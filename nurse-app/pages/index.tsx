@@ -1,3 +1,5 @@
+// このファイルはトップページのコンポーネントです
+
 import { Box, Container, Heading, SimpleGrid, Text, VStack } from '@chakra-ui/react';
 import Head from 'next/head';
 import Link from 'next/link';
