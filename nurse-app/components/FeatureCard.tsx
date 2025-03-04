@@ -1,3 +1,5 @@
+// このファイルはFeatureCardコンポーネントです
+
 import { Box, Heading, Text, Stack, useColorModeValue } from '@chakra-ui/react';
 import NextLink from 'next/link';
 import { FC } from 'react';
