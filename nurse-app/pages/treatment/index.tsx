@@ -14,13 +14,26 @@ import {
     IconButton,
     useDisclosure,
     useToast,
+    Modal,
+    ModalOverlay,
+    ModalContent,
+    ModalHeader,
+    ModalFooter,
+    ModalBody,
+    ModalCloseButton,
+    FormControl,
+    FormLabel,
+    Input,
+    Select,
+    Textarea,
 } from '@chakra-ui/react';
 import { AddIcon, EditIcon } from '@chakra-ui/icons';
 import { FC, useEffect, useState } from 'react';
 import { Header } from '../../components/Header';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { Treatment, fetchTreatmentStart, fetchTreatmentSuccess, fetchTreatmentFailure } from '../../store/slices/treatmentSlice';
+import { Treatment, fetchTreatmentStart, fetchTreatmentSuccess, fetchTreatmentFailure, addTreatment } from '../../store/slices/treatmentSlice';
 import Head from 'next/head';
+import { treatmentAPI } from '../../utils/api';
 
 // モックデータ
 const mockTreatments: Treatment[] = [
@@ -59,6 +72,87 @@ const TreatmentPage: FC = () => {
     const dispatch = useAppDispatch();
     const { treatments, loading, error } = useAppSelector((state) => state.treatment);
     const toast = useToast();
+    const { isOpen, onOpen, onClose } = useDisclosure();
+
+    // 新規処置記録用の状態
+    const [newTreatment, setNewTreatment] = useState<Partial<Treatment>>({
+        patientId: '',
+        patientName: '',
+        treatmentType: '',
+        description: '',
+        scheduledTime: '',
+        status: 'scheduled',
+    });
+
+    // 入力フィールドの変更ハンドラ
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+        const { name, value } = e.target;
+        setNewTreatment({
+            ...newTreatment,
+            [name]: value,
+        });
+    };
+
+    // 新規処置記録の送信ハンドラ
+    const handleSubmit = async () => {
+        try {
+            // 必須フィールドの検証
+            if (!newTreatment.patientId || !newTreatment.patientName || !newTreatment.treatmentType ||
+                !newTreatment.description || !newTreatment.scheduledTime) {
+                toast({
+                    title: 'エラー',
+                    description: '必須項目をすべて入力してください',
+                    status: 'error',
+                    duration: 5000,
+                    isClosable: true,
+                });
+                return;
+            }
+
+            // 一時的なIDを生成（実際のアプリではバックエンドが生成）
+            const tempId = 'temp-' + Math.random().toString(36).substr(2, 9);
+
+            const treatmentData: Treatment = {
+                id: tempId,
+                ...newTreatment as Omit<Treatment, 'id'>,
+            };
+
+            // Reduxストアに追加
+            dispatch(addTreatment(treatmentData));
+
+            // APIを使用してバックエンドに送信（実際のアプリで使用）
+            // const response = await treatmentAPI.create(treatmentData);
+            // dispatch(addTreatment(response)); // バックエンドから返されたデータで更新
+
+            toast({
+                title: '成功',
+                description: '処置記録が作成されました',
+                status: 'success',
+                duration: 5000,
+                isClosable: true,
+            });
+
+            // フォームをリセットしてモーダルを閉じる
+            setNewTreatment({
+                patientId: '',
+                patientName: '',
+                treatmentType: '',
+                description: '',
+                scheduledTime: '',
+                status: 'scheduled',
+            });
+            onClose();
+        } catch (error) {
+            toast({
+                title: 'エラー',
+                description: '処置記録の作成に失敗しました',
+                status: 'error',
+                duration: 5000,
+                isClosable: true,
+            });
+            console.error('処置記録作成エラー:', error);
+        }
+    };
 
     // 実際のアプリではAPIからデータを取得
     useEffect(() => {
@@ -126,7 +220,7 @@ const TreatmentPage: FC = () => {
                         <Heading as="h1" size="xl">
                             処置実施
                         </Heading>
-                        <Button leftIcon={<AddIcon />} colorScheme="blue">
+                        <Button leftIcon={<AddIcon />} colorScheme="blue" onClick={onOpen}>
                             新規登録
                         </Button>
                     </Flex>
@@ -182,6 +276,80 @@ const TreatmentPage: FC = () => {
                     )}
                 </Box>
             </Container>
+
+            {/* 新規処置記録作成モーダル */}
+            <Modal isOpen={isOpen} onClose={onClose}>
+                <ModalOverlay />
+                <ModalContent>
+                    <ModalHeader>新規処置記録作成</ModalHeader>
+                    <ModalCloseButton />
+                    <ModalBody pb={6}>
+                        <FormControl isRequired mb={4}>
+                            <FormLabel>患者ID</FormLabel>
+                            <Input
+                                name="patientId"
+                                value={newTreatment.patientId}
+                                onChange={handleInputChange}
+                                placeholder="患者ID"
+                            />
+                        </FormControl>
+
+                        <FormControl isRequired mb={4}>
+                            <FormLabel>患者名</FormLabel>
+                            <Input
+                                name="patientName"
+                                value={newTreatment.patientName}
+                                onChange={handleInputChange}
+                                placeholder="患者名"
+                            />
+                        </FormControl>
+
+                        <FormControl isRequired mb={4}>
+                            <FormLabel>処置種類</FormLabel>
+                            <Select
+                                name="treatmentType"
+                                value={newTreatment.treatmentType}
+                                onChange={handleInputChange}
+                                placeholder="処置種類を選択"
+                            >
+                                <option value="褥瘡処置">褥瘡処置</option>
+                                <option value="創傷処置">創傷処置</option>
+                                <option value="点滴交換">点滴交換</option>
+                                <option value="カテーテル管理">カテーテル管理</option>
+                                <option value="その他">その他</option>
+                            </Select>
+                        </FormControl>
+
+                        <FormControl isRequired mb={4}>
+                            <FormLabel>詳細</FormLabel>
+                            <Textarea
+                                name="description"
+                                value={newTreatment.description}
+                                onChange={handleInputChange}
+                                placeholder="処置の詳細を入力"
+                                rows={3}
+                            />
+                        </FormControl>
+
+                        <FormControl isRequired mb={4}>
+                            <FormLabel>予定時間</FormLabel>
+                            <Input
+                                name="scheduledTime"
+                                type="datetime-local"
+                                value={newTreatment.scheduledTime}
+                                onChange={handleInputChange}
+                            />
+                        </FormControl>
+                    </ModalBody>
+
+                    <ModalFooter>
+                        <Button colorScheme="blue" mr={3} onClick={handleSubmit}>
+                            保存
+                        </Button>
+                        <Button onClick={onClose}>キャンセル</Button>
+                    </ModalFooter>
+                </ModalContent>
+            </Modal>
         </>
     );
 };
