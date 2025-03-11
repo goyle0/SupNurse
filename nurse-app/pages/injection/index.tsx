@@ -20,6 +20,7 @@ import { FC, useEffect, useState } from 'react';
 import { Header } from '../../components/Header';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { Injection, fetchInjectionStart, fetchInjectionSuccess, fetchInjectionFailure } from '../../store/slices/injectionSlice';
+import InjectionFormModal from '../../components/injection/InjectionFormModal';
 import Head from 'next/head';
 
 // モックデータ
@@ -61,6 +62,7 @@ const mockInjections: Injection[] = [
 const InjectionPage: FC = () => {
     const dispatch = useAppDispatch();
     const { injections, loading, error } = useAppSelector((state) => state.injection);
+    const { isOpen, onOpen, onClose } = useDisclosure();
     const toast = useToast();
 
     // 実際のアプリではAPIからデータを取得
@@ -129,9 +131,10 @@ const InjectionPage: FC = () => {
                         <Heading as="h1" size="xl">
                             注射実施
                         </Heading>
-                        <Button leftIcon={<AddIcon />} colorScheme="blue">
+                        <Button leftIcon={<AddIcon />} colorScheme="blue" onClick={onOpen}>
                             新規登録
                         </Button>
+                        <InjectionFormModal isOpen={isOpen} onClose={onClose} />
                     </Flex>
 
                     {loading ? (
