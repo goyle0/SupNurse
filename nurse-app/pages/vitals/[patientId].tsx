@@ -1,68 +1,106 @@
-import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/router';
+import { useEffect, useState } from 'react';
 import {
-    Box, Heading, Flex, Select, Button, Alert,
-    AlertIcon, AlertTitle, useToast, Spinner
+    Box,
+    Heading,
+    Select,
+    Flex,
+    Alert,
+    AlertIcon,
+    AlertTitle,
+    Spinner,
+    Button,
+    useToast,
+    Modal,
+    ModalOverlay,
+    ModalContent,
+    ModalHeader,
+    ModalBody,
+    ModalCloseButton,
+    FormControl,
+    FormLabel,
+    NumberInput,
+    NumberInputField,
+    NumberInputStepper,
+    NumberIncrementStepper,
+    NumberDecrementStepper,
+    VStack,
 } from '@chakra-ui/react';
-import VitalChart from '../../components/vitals/VitalChart';
-import { useDispatch, useSelector } from 'react-redux';
+import { useRouter } from 'next/router';
+import { useDispatch, useSelector } from '../../store/hooks';
 import { fetchPatientVitals } from '../../store/slices/vitalSlice';
+import { VitalChart } from '../../components/vitals/VitalChart';
+import { DEFAULT_VITAL_THRESHOLDS, VitalThreshold, checkVitalSeverity, getVitalLabel } from '../../utils/vitalThresholds';
 
-const VITAL_THRESHOLDS = {
-    "temperature": { min: 35.0, max: 38.0, unit: "°C" },
-    "blood_pressure_systolic": { min: 90, max: 140, unit: "mmHg" },
-    "blood_pressure_diastolic": { min: 60, max: 90, unit: "mmHg" },
-    "pulse": { min: 60, max: 100, unit: "bpm" },
-    "spo2": { min: 95, max: 100, unit: "%" },
-    "respiration": { min: 12, max: 20, unit: "bpm" }
-};
-
-const PatientVitals = () => {
+export default function PatientVitals() {
     const router = useRouter();
     const { patientId } = router.query;
     const dispatch = useDispatch();
     const toast = useToast();
-
+    
     const [selectedVitalType, setSelectedVitalType] = useState('temperature');
-    const [timeRange, setTimeRange] = useState(7); // 表示日数
-
-    const { vitalSigns, abnormalCount, loading, error } = useSelector(state => state.vitals);
+    const [timeRange, setTimeRange] = useState(24);
+    const [isCustomizing, setIsCustomizing] = useState(false);
+    const [customThresholds, setCustomThresholds] = useState(DEFAULT_VITAL_THRESHOLDS);
+    const { vitals, loading, error } = useSelector(state => state.vitals);
 
     useEffect(() => {
         if (patientId) {
-            // @ts-ignore
-            dispatch(fetchPatientVitals({
-                patientId: Number(patientId),
-                vitalType: selectedVitalType,
-                days: timeRange
-            }));
+            dispatch(fetchPatientVitals(patientId as string));
         }
-    }, [dispatch, patientId, selectedVitalType, timeRange]);
+    }, [dispatch, patientId]);
 
-    // 異常値がある場合にアラートを表示
+    // 異常値のチェックと通知
     useEffect(() => {
-        if (abnormalCount > 0) {
+        if (!vitals || vitals.length === 0) return;
+
+        const currentThresholds = customThresholds[selectedVitalType];
+        const abnormalVitals = vitals.filter(vital => {
+            const severity = checkVitalSeverity(vital.value, currentThresholds);
+            return severity !== 'normal';
+        });
+
+        const criticalVitals = abnormalVitals.filter(vital => 
+            checkVitalSeverity(vital.value, currentThresholds) === 'critical'
+        );
+
+        if (criticalVitals.length > 0) {
+            toast({
+                title: "重大な異常値を検出",
+                description: `${criticalVitals.length}件の重大な異常値が検出されました。`,
+                status: "error",
+                duration: null,
+                isClosable: true,
+                position: "top-right"
+            });
+        } else if (abnormalVitals.length > 0) {
             toast({
                 title: "異常値検出",
-                description: `${abnormalCount}件の異常値が検出されました。`,
+                description: `${abnormalVitals.length}件の異常値が検出されました。`,
                 status: "warning",
                 duration: 9000,
                 isClosable: true,
                 position: "top-right"
             });
         }
-    }, [abnormalCount, toast]);
+    }, [vitals, selectedVitalType, customThresholds, toast]);
 
-    const handleVitalTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        setSelectedVitalType(e.target.value);
+    const handleThresholdChange = (
+        vitalType: string,
+        level: 'normal' | 'warning' | 'critical',
+        bound: 'min' | 'max',
+        value: number
+    ) => {
+        setCustomThresholds(prev => ({
+            ...prev,
+            [vitalType]: {
+                ...prev[vitalType],
+                [level]: {
+                    ...prev[vitalType][level],
+                    [bound]: value
+                }
+            }
+        }));
     };
-
-    const handleTimeRangeChange = (days: number) => {
-        setTimeRange(days);
-    };
-
-    // 選択中のバイタルサインの閾値を取得
-    const currentThreshold = VITAL_THRESHOLDS[selectedVitalType] || {};
 
     if (loading) {
         return <Spinner size="xl" />;
@@ -79,70 +117,110 @@ const PatientVitals = () => {
 
     return (
         <Box p={5}>
-            <Heading mb={5}>患者ID: {patientId} - バイタルサイン管理</Heading>
-
-            {abnormalCount > 0 && (
-                <Alert status="warning" mb={5}>
-                    <AlertIcon />
-                    <AlertTitle>{abnormalCount}件の異常値が検出されました</AlertTitle>
-                </Alert>
-            )}
+            <Flex justify="space-between" align="center" mb={5}>
+                <Heading>患者ID: {patientId} - バイタルサイン管理</Heading>
+                <Button onClick={() => setIsCustomizing(true)}>
+                    アラート設定
+                </Button>
+            </Flex>
 
             <Flex mb={5} wrap="wrap" gap={4}>
                 <Select
                     value={selectedVitalType}
-                    onChange={handleVitalTypeChange}
+                    onChange={(e) => setSelectedVitalType(e.target.value)}
                     maxWidth="300px"
                 >
-                    <option value="temperature">体温</option>
-                    <option value="blood_pressure_systolic">収縮期血圧</option>
-                    <option value="blood_pressure_diastolic">拡張期血圧</option>
-                    <option value="pulse">脈拍</option>
-                    <option value="spo2">SpO2</option>
-                    <option value="respiration">呼吸数</option>
+                    {Object.keys(customThresholds).map(type => (
+                        <option key={type} value={type}>
+                            {getVitalLabel(type)}
+                        </option>
+                    ))}
                 </Select>
 
-                <Flex gap={2}>
-                    <Button
-                        size="sm"
-                        colorScheme={timeRange === 1 ? "blue" : "gray"}
-                        onClick={() => handleTimeRangeChange(1)}
-                    >
-                        24時間
-                    </Button>
-                    <Button
-                        size="sm"
-                        colorScheme={timeRange === 7 ? "blue" : "gray"}
-                        onClick={() => handleTimeRangeChange(7)}
-                    >
-                        1週間
-                    </Button>
-                    <Button
-                        size="sm"
-                        colorScheme={timeRange === 30 ? "blue" : "gray"}
-                        onClick={() => handleTimeRangeChange(30)}
-                    >
-                        1ヶ月
-                    </Button>
-                </Flex>
+                <Select
+                    value={timeRange}
+                    onChange={(e) => setTimeRange(Number(e.target.value))}
+                    maxWidth="200px"
+                >
+                    <option value={24}>24時間</option>
+                    <option value={48}>48時間</option>
+                    <option value={72}>72時間</option>
+                    <option value={168}>1週間</option>
+                </Select>
             </Flex>
 
-            {vitalSigns?.length > 0 ? (
+            {vitals && vitals.length > 0 && (
                 <VitalChart
-                    data={vitalSigns}
-                    vitalType={selectedVitalType}
-                    unit={currentThreshold.unit || ''}
-                    minThreshold={currentThreshold.min}
-                    maxThreshold={currentThreshold.max}
+                    data={vitals}
+                    type={selectedVitalType}
+                    thresholds={customThresholds[selectedVitalType]}
                 />
-            ) : (
-                <Alert status="info">
-                    <AlertIcon />
-                    表示するデータがありません
-                </Alert>
             )}
+
+            <Modal isOpen={isCustomizing} onClose={() => setIsCustomizing(false)} size="xl">
+                <ModalOverlay />
+                <ModalContent>
+                    <ModalHeader>アラート設定</ModalHeader>
+                    <ModalCloseButton />
+                    <ModalBody pb={6}>
+                        <VStack spacing={6}>
+                            {Object.entries(customThresholds).map(([type, threshold]) => (
+                                <Box key={type} w="100%" p={4} borderWidth={1} borderRadius="md">
+                                    <Heading size="md" mb={4}>{getVitalLabel(type)}</Heading>
+                                    {['normal', 'warning', 'critical'].map((level) => (
+                                        <Flex key={level} gap={4} mb={4}>
+                                            <FormControl>
+                                                <FormLabel color={
+                                                    level === 'critical' ? 'red.500' :
+                                                    level === 'warning' ? 'orange.500' :
+                                                    'green.500'
+                                                }>
+                                                    {level === 'critical' ? '危険域' :
+                                                     level === 'warning' ? '注意域' :
+                                                     '正常域'}（最小値）
+                                                </FormLabel>
+                                                <NumberInput
+                                                    value={threshold[level].min}
+                                                    onChange={(_, val) => handleThresholdChange(type, level as any, 'min', val)}
+                                                    step={0.1}
+                                                >
+                                                    <NumberInputField />
+                                                    <NumberInputStepper>
+                                                        <NumberIncrementStepper />
+                                                        <NumberDecrementStepper />
+                                                    </NumberInputStepper>
+                                                </NumberInput>
+                                            </FormControl>
+                                            <FormControl>
+                                                <FormLabel color={
+                                                    level === 'critical' ? 'red.500' :
+                                                    level === 'warning' ? 'orange.500' :
+                                                    'green.500'
+                                                }>
+                                                    {level === 'critical' ? '危険域' :
+                                                     level === 'warning' ? '注意域' :
+                                                     '正常域'}（最大値）
+                                                </FormLabel>
+                                                <NumberInput
+                                                    value={threshold[level].max}
+                                                    onChange={(_, val) => handleThresholdChange(type, level as any, 'max', val)}
+                                                    step={0.1}
+                                                >
+                                                    <NumberInputField />
+                                                    <NumberInputStepper>
+                                                        <NumberIncrementStepper />
+                                                        <NumberDecrementStepper />
+                                                    </NumberInputStepper>
+                                                </NumberInput>
+                                            </FormControl>
+                                        </Flex>
+                                    ))}
+                                </Box>
+                            ))}
+                        </VStack>
+                    </ModalBody>
+                </ModalContent>
+            </Modal>
         </Box>
     );
-};
-
-export default PatientVitals;
+}
