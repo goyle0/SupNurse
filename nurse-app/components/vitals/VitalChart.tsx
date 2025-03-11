@@ -1,105 +1,147 @@
 import React from 'react';
+import { Box, Alert, AlertIcon, AlertTitle, AlertDescription, Tooltip } from '@chakra-ui/react';
 import {
-    LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-    Legend, ResponsiveContainer, ReferenceLine
+    LineChart,
+    Line,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    ReferenceLine,
+    ResponsiveContainer,
+    Tooltip as RechartsTooltip
 } from 'recharts';
-import { Box, Text, useColorModeValue } from '@chakra-ui/react';
-import { format } from 'date-fns';
-import { ja } from 'date-fns/locale';
-
-interface VitalReading {
-    id: number;
-    timestamp: string;
-    value: number;
-    is_abnormal: boolean;
-}
+import { VitalThreshold, VitalSeverity, checkVitalSeverity, getVitalLabel, getVitalUnit } from '../../utils/vitalThresholds';
 
 interface VitalChartProps {
-    data: VitalReading[];
-    vitalType: string;
-    unit: string;
-    minThreshold?: number;
-    maxThreshold?: number;
+    data: Array<{
+        timestamp: string;
+        value: number;
+    }>;
+    type: string;
+    thresholds: VitalThreshold;
 }
 
-const VitalChart: React.FC<VitalChartProps> = ({
-    data, vitalType, unit, minThreshold, maxThreshold
-}) => {
-    // チャートデータの整形
-    const chartData = data.map(item => ({
-        ...item,
-        formattedTime: format(new Date(item.timestamp), 'MM/dd HH:mm', { locale: ja })
-    }));
-
-    // 異常値の色設定
-    const normalColor = useColorModeValue('#3182CE', '#63B3ED');
-    const abnormalColor = useColorModeValue('#E53E3E', '#FC8181');
-
-    // 閾値の表示テキスト
-    const thresholdText = () => {
-        if (minThreshold && maxThreshold) {
-            return `正常範囲: ${minThreshold}${unit} - ${maxThreshold}${unit}`;
+export const VitalChart: React.FC<VitalChartProps> = ({ data, type, thresholds }) => {
+    const getSeverityColor = (severity: VitalSeverity) => {
+        switch (severity) {
+            case 'critical':
+                return 'red.500';
+            case 'warning':
+                return 'orange.400';
+            default:
+                return 'green.500';
         }
-        return '';
     };
 
-    // バイタルタイプごとの表示名
-    const vitalTypeLabels: Record<string, string> = {
-        'temperature': '体温',
-        'blood_pressure_systolic': '収縮期血圧',
-        'blood_pressure_diastolic': '拡張期血圧',
-        'pulse': '脈拍',
-        'spo2': 'SpO2',
-        'respiration': '呼吸数'
+    const CustomTooltip = ({ active, payload, label }: any) => {
+        if (active && payload && payload.length) {
+            const value = payload[0].value;
+            const severity = checkVitalSeverity(value, thresholds);
+            const color = getSeverityColor(severity);
+            const timestamp = new Date(label).toLocaleString();
+
+            return (
+                <Box
+                    bg="white"
+                    p={3}
+                    boxShadow="lg"
+                    borderRadius="md"
+                    border="1px solid"
+                    borderColor={color}
+                >
+                    <Box fontWeight="bold" mb={2}>
+                        {getVitalLabel(type)}: {value}{getVitalUnit(type)}
+                    </Box>
+                    <Box fontSize="sm" color="gray.600">
+                        計測時刻: {timestamp}
+                    </Box>
+                    {severity !== 'normal' && (
+                        <Alert status={severity === 'critical' ? 'error' : 'warning'} mt={2} size="sm">
+                            <AlertIcon />
+                            {severity === 'critical' ? '危険値' : '注意値'}
+                        </Alert>
+                    )}
+                </Box>
+            );
+        }
+        return null;
+    };
+
+    const renderReferenceLines = () => {
+        const lines = [];
+        if (thresholds.critical) {
+            lines.push(
+                <ReferenceLine
+                    key="critical-min"
+                    y={thresholds.critical.min}
+                    stroke="red"
+                    strokeDasharray="3 3"
+                    label={{ value: '危険下限', fill: 'red', fontSize: 12 }}
+                />,
+                <ReferenceLine
+                    key="critical-max"
+                    y={thresholds.critical.max}
+                    stroke="red"
+                    strokeDasharray="3 3"
+                    label={{ value: '危険上限', fill: 'red', fontSize: 12 }}
+                />
+            );
+        }
+        if (thresholds.warning) {
+            lines.push(
+                <ReferenceLine
+                    key="warning-min"
+                    y={thresholds.warning.min}
+                    stroke="orange"
+                    strokeDasharray="3 3"
+                    label={{ value: '注意下限', fill: 'orange', fontSize: 12 }}
+                />,
+                <ReferenceLine
+                    key="warning-max"
+                    y={thresholds.warning.max}
+                    stroke="orange"
+                    strokeDasharray="3 3"
+                    label={{ value: '注意上限', fill: 'orange', fontSize: 12 }}
+                />
+            );
+        }
+        return lines;
+    };
+
+    const getDataPointColor = (value: number) => {
+        const severity = checkVitalSeverity(value, thresholds);
+        return getSeverityColor(severity);
     };
 
     return (
-        <Box p={4} borderWidth="1px" borderRadius="lg" w="100%" h="400px">
-            <Text fontSize="lg" fontWeight="bold" mb={2}>
-                {vitalTypeLabels[vitalType] || vitalType} ({unit})
-            </Text>
-            <Text fontSize="sm" color="gray.500" mb={4}>
-                {thresholdText()}
-            </Text>
-            <ResponsiveContainer width="100%" height="80%">
-                <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+        <Box h="400px" w="100%">
+            <ResponsiveContainer>
+                <LineChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="formattedTime" />
-                    <YAxis domain={['auto', 'auto']} />
-                    <Tooltip
-                        formatter={(value) => [`${value}${unit}`, vitalTypeLabels[vitalType] || vitalType]}
-                        labelFormatter={(time) => `${time}`}
+                    <XAxis
+                        dataKey="timestamp"
+                        tickFormatter={(timestamp) => new Date(timestamp).toLocaleTimeString()}
                     />
-                    <Legend />
-                    {minThreshold && (
-                        <ReferenceLine y={minThreshold} stroke="orange" strokeDasharray="3 3" label={`Min: ${minThreshold}${unit}`} />
-                    )}
-                    {maxThreshold && (
-                        <ReferenceLine y={maxThreshold} stroke="red" strokeDasharray="3 3" label={`Max: ${maxThreshold}${unit}`} />
-                    )}
+                    <YAxis
+                        tickFormatter={(value) => `${value}${getVitalUnit(type)}`}
+                        domain={['auto', 'auto']}
+                    />
+                    <RechartsTooltip content={<CustomTooltip />} />
+                    {renderReferenceLines()}
                     <Line
                         type="monotone"
                         dataKey="value"
-                        name={vitalTypeLabels[vitalType] || vitalType}
-                        stroke={normalColor}
-                        activeDot={{ r: 8 }}
-                        dot={(props) => {
-                            // @ts-ignore
-                            const isAbnormal = chartData[props.index]?.is_abnormal;
-                            return (
-                                <circle
-                                    cx={props.cx}
-                                    cy={props.cy}
-                                    r={isAbnormal ? 6 : 4}
-                                    fill={isAbnormal ? abnormalColor : normalColor}
-                                />
-                            );
+                        stroke="#2196f3"
+                        strokeWidth={2}
+                        dot={{
+                            r: 4,
+                            fill: (props: any) => getDataPointColor(props.payload.value),
+                            strokeWidth: 0
                         }}
+                        activeDot={{ r: 6, strokeWidth: 0 }}
                     />
                 </LineChart>
             </ResponsiveContainer>
         </Box>
     );
 };
-
-export default VitalChart;
