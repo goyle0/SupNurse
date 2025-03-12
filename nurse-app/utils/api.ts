@@ -136,6 +136,12 @@ export const treatmentAPI = {
         const response = await apiClient.delete(`/api/treatments/${id}`);
         return response.data;
     },
+
+    // 処置実施の記録用メソッドを追加
+    complete: async (id: string, completionData: any) => {
+        const response = await apiClient.post(`/api/treatments/${id}/complete`, completionData);
+        return response.data;
+    },
 };
 
 // 看護計画関連のAPI
