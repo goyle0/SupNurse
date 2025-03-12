@@ -2,8 +2,8 @@
 
 import axios from 'axios';
 
-// APIクライアントの設定
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// APIクライアントの設定 - 開発中は明示的に8001ポートを指定
+const API_URL = 'http://localhost:8001';
 
 // Axiosインスタンスの作成
 const apiClient = axios.create({

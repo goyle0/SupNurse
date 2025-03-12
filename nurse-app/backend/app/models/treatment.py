@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, ForeignKey, Text
+from sqlalchemy import Column, String, DateTime, ForeignKey, Text, Integer
 from sqlalchemy.orm import relationship
 from app.database import Base
 import uuid
@@ -19,3 +19,7 @@ class Treatment(Base):
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # ユーザーとの関連を追加
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_by_user = relationship("User", back_populates="treatments")
