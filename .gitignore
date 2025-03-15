@@ -37,3 +37,6 @@ include/
 lib/
 share/
 lib64
+
+# ネストされたGitリポジトリを防止
+nurse-app/.git/
