@@ -1,9 +1,7 @@
-// このファイルはAPI呼び出し設定を含みます
-
 import axios from 'axios';
 
-// APIクライアントの設定 - 開発中は明示的に8001ポートを指定
-const API_URL = 'http://localhost:8001';
+// APIクライアントの設定
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
 
 // モードフラグ（開発環境ではモックデータを使用するかどうかを制御）
 const USE_MOCK_DATA = true;
@@ -49,6 +47,17 @@ apiClient.interceptors.response.use(
         return Promise.reject(error);
     }
 );
+
+// 認証トークン設定/削除のヘルパー関数
+export const setAuthToken = (token: string) => {
+    localStorage.setItem('token', token);
+    apiClient.defaults.headers.common.Authorization = `Bearer ${token}`;
+};
+
+export const removeAuthToken = () => {
+    localStorage.removeItem('token');
+    delete apiClient.defaults.headers.common.Authorization;
+};
 
 // モックデータ
 export const mockData = {
@@ -161,6 +170,36 @@ export const mockData = {
             recordTime: '2025-03-02T10:00:00',
             createdBy: '田中 看護師',
         }
+    ],
+    vitals: [
+        {
+            id: '1',
+            patientId: 'P001',
+            patientName: '山田 太郎',
+            temperature: 37.2,
+            heartRate: 72,
+            respiratoryRate: 16,
+            bloodPressure: '138/85',
+            oxygenSaturation: 98,
+            painLevel: 0,
+            recordedAt: '2023-03-01T08:00:00',
+            recordedBy: '鈴木 看護師',
+            notes: '安静時'
+        },
+        {
+            id: '2',
+            patientId: 'P001',
+            patientName: '山田 太郎',
+            temperature: 37.5,
+            heartRate: 78,
+            respiratoryRate: 18,
+            bloodPressure: '142/88',
+            oxygenSaturation: 97,
+            painLevel: 2,
+            recordedAt: '2023-03-01T12:00:00',
+            recordedBy: '鈴木 看護師',
+            notes: '昼食後'
+        }
     ]
 };
 
@@ -189,27 +228,22 @@ export const authAPI = {
         const formData = new FormData();
         formData.append('username', username);
         formData.append('password', password);
-
         const response = await apiClient.post('/token', formData, {
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
         });
-
         if (response.data.access_token) {
-            localStorage.setItem('token', response.data.access_token);
+            setAuthToken(response.data.access_token);
         }
-
         return response.data;
     },
-
     register: async (userData: any) => {
         const response = await apiClient.post('/register', userData);
         return response.data;
     },
-
     logout: () => {
-        localStorage.removeItem('token');
+        removeAuthToken();
     },
 };
 
@@ -224,7 +258,6 @@ export const injectionAPI = {
             mockData.injections
         );
     },
-
     getById: async (id: string) => {
         return safeApiCall(
             async () => {
@@ -234,7 +267,6 @@ export const injectionAPI = {
             mockData.injections.find(item => item.id === id) || null
         );
     },
-
     create: async (injectionData: any) => {
         return safeApiCall(
             async () => {
@@ -247,7 +279,6 @@ export const injectionAPI = {
             }
         );
     },
-
     update: async (id: string, injectionData: any) => {
         return safeApiCall(
             async () => {
@@ -257,7 +288,6 @@ export const injectionAPI = {
             injectionData
         );
     },
-
     delete: async (id: string) => {
         return safeApiCall(
             async () => {
@@ -267,7 +297,6 @@ export const injectionAPI = {
             { success: true }
         );
     },
-
     administer: async (id: string, administrationData: any) => {
         return safeApiCall(
             async () => {
@@ -294,7 +323,6 @@ export const treatmentAPI = {
             mockData.treatments
         );
     },
-
     getById: async (id: string) => {
         return safeApiCall(
             async () => {
@@ -304,7 +332,6 @@ export const treatmentAPI = {
             mockData.treatments.find(item => item.id === id) || null
         );
     },
-
     create: async (treatmentData: any) => {
         return safeApiCall(
             async () => {
@@ -317,7 +344,6 @@ export const treatmentAPI = {
             }
         );
     },
-
     update: async (id: string, treatmentData: any) => {
         return safeApiCall(
             async () => {
@@ -327,7 +353,6 @@ export const treatmentAPI = {
             treatmentData
         );
     },
-
     delete: async (id: string) => {
         return safeApiCall(
             async () => {
@@ -337,7 +362,6 @@ export const treatmentAPI = {
             { success: true }
         );
     },
-
     // 処置実施の記録用メソッドを追加
     complete: async (id: string, completionData: any) => {
         return safeApiCall(
@@ -365,7 +389,6 @@ export const nursingPlanAPI = {
             mockData.nursingPlans
         );
     },
-
     getById: async (id: string) => {
         return safeApiCall(
             async () => {
@@ -375,7 +398,6 @@ export const nursingPlanAPI = {
             mockData.nursingPlans.find(item => item.id === id) || null
         );
     },
-
     create: async (planData: any) => {
         return safeApiCall(
             async () => {
@@ -388,7 +410,6 @@ export const nursingPlanAPI = {
             }
         );
     },
-
     update: async (id: string, planData: any) => {
         return safeApiCall(
             async () => {
@@ -398,7 +419,6 @@ export const nursingPlanAPI = {
             planData
         );
     },
-
     delete: async (id: string) => {
         return safeApiCall(
             async () => {
@@ -421,7 +441,6 @@ export const nursingRecordAPI = {
             mockData.nursingRecords
         );
     },
-
     getById: async (id: string) => {
         return safeApiCall(
             async () => {
@@ -431,7 +450,6 @@ export const nursingRecordAPI = {
             mockData.nursingRecords.find(item => item.id === id) || null
         );
     },
-
     create: async (recordData: any) => {
         return safeApiCall(
             async () => {
@@ -444,7 +462,6 @@ export const nursingRecordAPI = {
             }
         );
     },
-
     update: async (id: string, recordData: any) => {
         return safeApiCall(
             async () => {
@@ -454,11 +471,65 @@ export const nursingRecordAPI = {
             recordData
         );
     },
-
     delete: async (id: string) => {
         return safeApiCall(
             async () => {
                 const response = await apiClient.delete(`/api/nursing-records/${id}`);
+                return response.data;
+            },
+            { success: true }
+        );
+    },
+};
+
+// バイタルサイン関連のAPI
+export const vitalsAPI = {
+    getAll: async (patientId?: string) => {
+        return safeApiCall(
+            async () => {
+                const url = patientId ? `/api/vitals?patient_id=${patientId}` : '/api/vitals';
+                const response = await apiClient.get(url);
+                return response.data;
+            }, 
+            patientId 
+              ? mockData.vitals.filter(v => v.patientId === patientId)
+              : mockData.vitals
+        );
+    },
+    getById: async (id: string) => {
+        return safeApiCall(
+            async () => {
+                const response = await apiClient.get(`/api/vitals/${id}`);
+                return response.data;
+            },
+            mockData.vitals.find(item => item.id === id) || null
+        );
+    },
+    create: async (vitalData: any) => {
+        return safeApiCall(
+            async () => {
+                const response = await apiClient.post('/api/vitals', vitalData);
+                return response.data;
+            },
+            {
+                ...vitalData,
+                id: `new-${Date.now()}`
+            }
+        );
+    },
+    update: async (id: string, vitalData: any) => {
+        return safeApiCall(
+            async () => {
+                const response = await apiClient.put(`/api/vitals/${id}`, vitalData);
+                return response.data;
+            },
+            vitalData
+        );
+    },
+    delete: async (id: string) => {
+        return safeApiCall(
+            async () => {
+                const response = await apiClient.delete(`/api/vitals/${id}`);
                 return response.data;
             },
             { success: true }

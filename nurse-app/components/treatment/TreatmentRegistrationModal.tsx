@@ -17,10 +17,8 @@ import {
   FormErrorMessage,
 } from '@chakra-ui/react';
 import { FC, useEffect, useState } from 'react';
-import { Treatment, addTreatment } from '../../store/slices/treatmentSlice';
-import { useAppDispatch } from '../../store/hooks';
+import { Treatment } from '../../store/slices/treatmentSlice';
 import { v4 as uuidv4 } from 'uuid';
-import { treatmentAPI } from '../../utils/api';
 
 interface TreatmentRegistrationModalProps {
   isOpen: boolean;
@@ -42,7 +40,6 @@ const TreatmentRegistrationModal: FC<TreatmentRegistrationModalProps> = ({
   onComplete,
   initialData,
 }) => {
-  const dispatch = useAppDispatch();
   const toast = useToast();
   const [formData, setFormData] = useState<Partial<Treatment>>({
     patientId: '',
@@ -124,7 +121,6 @@ const TreatmentRegistrationModal: FC<TreatmentRegistrationModalProps> = ({
     }
     
     setIsSubmitting(true);
-
     try {
       const treatment: Treatment = {
         id: initialData?.id || uuidv4(),
@@ -138,7 +134,8 @@ const TreatmentRegistrationModal: FC<TreatmentRegistrationModalProps> = ({
         completedBy: formData.completedBy,
         notes: formData.notes,
       };
-
+      
+      // 親コンポーネントのonCompleteに処理を委ねる
       onComplete(treatment);
     } catch (error) {
       toast({
