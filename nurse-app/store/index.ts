@@ -3,7 +3,6 @@ import treatmentReducer from './slices/treatmentSlice';
 import injectionReducer from './slices/injectionSlice';
 import nursingRecordReducer from './slices/nursingRecordSlice';
 import nursingPlanReducer from './slices/nursingPlanSlice';
-import vitalReducer from './slices/vitalSlice';
 
 export const store = configureStore({
   reducer: {
@@ -11,7 +10,6 @@ export const store = configureStore({
     injection: injectionReducer,
     nursingRecord: nursingRecordReducer,
     nursingPlan: nursingPlanReducer,
-    vitals: vitalReducer,
   },
 });
 
