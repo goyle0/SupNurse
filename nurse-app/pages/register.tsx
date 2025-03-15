@@ -1,135 +1,111 @@
-import { useState, useEffect } from 'react';
+// このファイルは登録ページのコンポーネントです
+
 import {
-    Container,
     Box,
-    Heading,
+    Button,
+    Container,
     FormControl,
     FormLabel,
+    Heading,
     Input,
-    Button,
     Stack,
-    FormErrorMessage,
-    useToast,
-    VStack,
     Text,
-    Progress,
-    List,
-    ListItem,
-    ListIcon
+    useToast,
+    FormErrorMessage,
+    Flex,
 } from '@chakra-ui/react';
-import { CheckIcon, WarningIcon } from '@chakra-ui/icons';
+import { useState } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
-import api from '../utils/api';
-import { validatePassword, validateEmail, validateUsername } from '../utils/validation';
+import NextLink from 'next/link';
+import { authAPI } from '../utils/api';
 
-interface FormData {
-    username: string;
-    email: string;
-    password: string;
-}
-
-interface FormErrors {
-    username: string[];
-    email: string[];
-    password: string[];
-}
-
-export default function Register() {
-    const [formData, setFormData] = useState<FormData>({
+const RegisterPage = () => {
+    const [formData, setFormData] = useState({
         username: '',
         email: '',
+        full_name: '',
         password: '',
+        confirmPassword: '',
     });
-    const [errors, setErrors] = useState<FormErrors>({
-        username: [],
-        email: [],
-        password: [],
-    });
+    const [errors, setErrors] = useState<Record<string, string>>({});
     const [isLoading, setIsLoading] = useState(false);
     const toast = useToast();
     const router = useRouter();
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
-        setFormData(prev => ({
-            ...prev,
+        setFormData({
+            ...formData,
             [name]: value,
-        }));
-
-        // リアルタイムバリデーション
-        validateField(name, value);
+        });
+        // 入力時にエラーをクリア
+        if (errors[name]) {
+            setErrors({
+                ...errors,
+                [name]: '',
+            });
+        }
     };
 
-    const validateField = (name: string, value: string) => {
-        let fieldErrors: string[] = [];
-        
-        switch (name) {
-            case 'password':
-                fieldErrors = validatePassword(value);
-                break;
-            case 'email':
-                fieldErrors = validateEmail(value);
-                break;
-            case 'username':
-                fieldErrors = validateUsername(value);
-                break;
+    const validateForm = () => {
+        const newErrors: Record<string, string> = {};
+
+        if (!formData.username) {
+            newErrors.username = 'ユーザー名は必須です';
         }
 
-        setErrors(prev => ({
-            ...prev,
-            [name]: fieldErrors,
-        }));
-    };
+        if (!formData.email) {
+            newErrors.email = 'メールアドレスは必須です';
+        } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+            newErrors.email = '有効なメールアドレスを入力してください';
+        }
 
-    const calculatePasswordStrength = (password: string): number => {
-        if (!password) return 0;
-        let strength = 0;
+        if (!formData.password) {
+            newErrors.password = 'パスワードは必須です';
+        } else if (formData.password.length < 6) {
+            newErrors.password = 'パスワードは6文字以上である必要があります';
+        }
 
-        if (password.length >= 8) strength += 20;
-        if (/[A-Z]/.test(password)) strength += 20;
-        if (/[a-z]/.test(password)) strength += 20;
-        if (/\d/.test(password)) strength += 20;
-        if (/[!@#$%^&*(),.?":{}|<>]/.test(password)) strength += 20;
+        if (formData.password !== formData.confirmPassword) {
+            newErrors.confirmPassword = 'パスワードが一致しません';
+        }
 
-        return strength;
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setIsLoading(true);
 
-        // 全フィールドの再バリデーション
-        validateField('username', formData.username);
-        validateField('email', formData.email);
-        validateField('password', formData.password);
-
-        // エラーチェック
-        const hasErrors = Object.values(errors).some(fieldErrors => fieldErrors.length > 0);
-        if (hasErrors) {
-            toast({
-                title: '入力エラー',
-                description: '入力内容を確認してください',
-                status: 'error',
-                duration: 5000,
-                isClosable: true,
-            });
-            setIsLoading(false);
+        if (!validateForm()) {
             return;
         }
 
+        setIsLoading(true);
+
         try {
-            const response = await api.post('/auth/register', formData);
+            const userData = {
+                username: formData.username,
+                email: formData.email,
+                full_name: formData.full_name,
+                password: formData.password,
+            };
+
+            await authAPI.register(userData);
+
             toast({
                 title: '登録成功',
-                description: 'アカウントが作成されました',
+                description: 'アカウントが正常に作成されました。ログインしてください。',
                 status: 'success',
                 duration: 5000,
                 isClosable: true,
             });
+
             router.push('/login');
         } catch (error: any) {
-            const errorMessage = error.response?.data?.detail || '登録に失敗しました';
+            const errorMessage = error.response?.data?.detail || '登録に失敗しました。もう一度お試しください。';
+
             toast({
                 title: '登録エラー',
                 description: errorMessage,
@@ -142,8 +118,6 @@ export default function Register() {
         }
     };
 
-    const passwordStrength = calculatePasswordStrength(formData.password);
-
     return (
         <>
             <Head>
@@ -151,89 +125,115 @@ export default function Register() {
             </Head>
 
             <Container maxW="md" py={12}>
-                <Box p={8} borderWidth={1} borderRadius="lg" boxShadow="lg" bg="white">
+                <Box
+                    p={8}
+                    borderWidth={1}
+                    borderRadius="lg"
+                    boxShadow="lg"
+                    bg="white"
+                >
                     <Stack spacing={6}>
                         <Heading as="h1" size="xl" textAlign="center">
                             看護支援アプリ
                         </Heading>
+                        <Heading as="h2" size="md" textAlign="center" color="gray.600">
+                            新規登録
+                        </Heading>
+
                         <form onSubmit={handleSubmit}>
-                            <VStack spacing={4}>
-                                <FormControl isInvalid={errors.username.length > 0}>
+                            <Stack spacing={4}>
+                                <FormControl id="username" isRequired isInvalid={!!errors.username}>
                                     <FormLabel>ユーザー名</FormLabel>
                                     <Input
+                                        type="text"
                                         name="username"
                                         value={formData.username}
                                         onChange={handleChange}
                                     />
-                                    {errors.username.map((error, index) => (
-                                        <FormErrorMessage key={index}>{error}</FormErrorMessage>
-                                    ))}
+                                    {errors.username && (
+                                        <FormErrorMessage>{errors.username}</FormErrorMessage>
+                                    )}
                                 </FormControl>
 
-                                <FormControl isInvalid={errors.email.length > 0}>
+                                <FormControl id="email" isRequired isInvalid={!!errors.email}>
                                     <FormLabel>メールアドレス</FormLabel>
                                     <Input
-                                        name="email"
                                         type="email"
+                                        name="email"
                                         value={formData.email}
                                         onChange={handleChange}
                                     />
-                                    {errors.email.map((error, index) => (
-                                        <FormErrorMessage key={index}>{error}</FormErrorMessage>
-                                    ))}
+                                    {errors.email && (
+                                        <FormErrorMessage>{errors.email}</FormErrorMessage>
+                                    )}
                                 </FormControl>
 
-                                <FormControl isInvalid={errors.password.length > 0}>
+                                <FormControl id="full_name">
+                                    <FormLabel>氏名</FormLabel>
+                                    <Input
+                                        type="text"
+                                        name="full_name"
+                                        value={formData.full_name}
+                                        onChange={handleChange}
+                                    />
+                                </FormControl>
+
+                                <FormControl id="password" isRequired isInvalid={!!errors.password}>
                                     <FormLabel>パスワード</FormLabel>
                                     <Input
-                                        name="password"
                                         type="password"
+                                        name="password"
                                         value={formData.password}
                                         onChange={handleChange}
                                     />
-                                    <Box mt={2}>
-                                        <Text fontSize="sm" mb={1}>パスワード強度:</Text>
-                                        <Progress value={passwordStrength} colorScheme={
-                                            passwordStrength <= 20 ? 'red' :
-                                            passwordStrength <= 40 ? 'orange' :
-                                            passwordStrength <= 60 ? 'yellow' :
-                                            passwordStrength <= 80 ? 'blue' :
-                                            'green'
-                                        } />
-                                    </Box>
-                                    <List spacing={1} mt={2} fontSize="sm">
-                                        {[
-                                            { condition: formData.password.length >= 8, text: '8文字以上' },
-                                            { condition: /[A-Z]/.test(formData.password), text: '大文字を含む' },
-                                            { condition: /[a-z]/.test(formData.password), text: '小文字を含む' },
-                                            { condition: /\d/.test(formData.password), text: '数字を含む' },
-                                            { condition: /[!@#$%^&*(),.?":{}|<>]/.test(formData.password), text: '特殊文字を含む' },
-                                        ].map((item, index) => (
-                                            <ListItem key={index} color={item.condition ? 'green.500' : 'gray.500'}>
-                                                <ListIcon as={item.condition ? CheckIcon : WarningIcon} color={item.condition ? 'green.500' : 'gray.500'} />
-                                                {item.text}
-                                            </ListItem>
-                                        ))}
-                                    </List>
-                                    {errors.password.map((error, index) => (
-                                        <FormErrorMessage key={index}>{error}</FormErrorMessage>
-                                    ))}
+                                    {errors.password && (
+                                        <FormErrorMessage>{errors.password}</FormErrorMessage>
+                                    )}
+                                </FormControl>
+
+                                <FormControl
+                                    id="confirmPassword"
+                                    isRequired
+                                    isInvalid={!!errors.confirmPassword}
+                                >
+                                    <FormLabel>パスワード（確認）</FormLabel>
+                                    <Input
+                                        type="password"
+                                        name="confirmPassword"
+                                        value={formData.confirmPassword}
+                                        onChange={handleChange}
+                                    />
+                                    {errors.confirmPassword && (
+                                        <FormErrorMessage>{errors.confirmPassword}</FormErrorMessage>
+                                    )}
                                 </FormControl>
 
                                 <Button
                                     type="submit"
                                     colorScheme="blue"
-                                    width="full"
+                                    size="lg"
+                                    fontSize="md"
                                     isLoading={isLoading}
-                                    loadingText="登録中..."
+                                    mt={6}
                                 >
                                     登録
                                 </Button>
-                            </VStack>
+                            </Stack>
                         </form>
+
+                        <Flex justify="center">
+                            <Text mr={2}>すでにアカウントをお持ちの方は</Text>
+                            <NextLink href="/login" passHref>
+                                <Text as="a" color="blue.500" fontWeight="bold">
+                                    ログイン
+                                </Text>
+                            </NextLink>
+                        </Flex>
                     </Stack>
                 </Box>
             </Container>
         </>
     );
-}
+};
+
+export default RegisterPage;

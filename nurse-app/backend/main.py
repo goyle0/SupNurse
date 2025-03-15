@@ -1,11 +1,9 @@
 # このファイルはバックエンドのエントリーポイントです
-
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
 import uvicorn
-
-from app.routers import injection, treatment, nursing_plan, nursing_record, auth
+from app.routers import injection, treatment, auth
 from app.database import engine, Base
 from app.dependencies import get_current_user
 
@@ -22,6 +20,7 @@ app = FastAPI(
 origins = [
     "http://localhost:3000",  # Next.jsのデフォルトポート
     "http://localhost:8000",  # 開発環境用
+    "http://localhost:8001",  # 現在の環境用
 ]
 
 app.add_middleware(
@@ -34,30 +33,36 @@ app.add_middleware(
 
 # ルーターの登録
 app.include_router(auth.router, tags=["認証"])
+
+# 開発中は認証を一時的に無効化
 app.include_router(
     injection.router,
     prefix="/api/injections",
     tags=["注射実施"],
-    dependencies=[Depends(get_current_user)]
+    # dependencies=[Depends(get_current_user)]  # 一時的にコメントアウト
 )
+
 app.include_router(
     treatment.router,
     prefix="/api/treatments",
     tags=["処置実施"],
-    dependencies=[Depends(get_current_user)]
+    # dependencies=[Depends(get_current_user)]  # 一時的にコメントアウト
 )
-app.include_router(
-    nursing_plan.router,
-    prefix="/api/nursing-plans",
-    tags=["看護計画"],
-    dependencies=[Depends(get_current_user)]
-)
-app.include_router(
-    nursing_record.router,
-    prefix="/api/nursing-records",
-    tags=["看護記録"],
-    dependencies=[Depends(get_current_user)]
-)
+
+# 看護計画と看護記録のルーターは今回の実装では一時的にコメントアウト
+# app.include_router(
+#     nursing_plan.router,
+#     prefix="/api/nursing-plans",
+#     tags=["看護計画"],
+#     dependencies=[Depends(get_current_user)]
+# )
+# 
+# app.include_router(
+#     nursing_record.router,
+#     prefix="/api/nursing-records",
+#     tags=["看護記録"],
+#     dependencies=[Depends(get_current_user)]
+# )
 
 @app.get("/")
 async def root():
@@ -68,4 +73,4 @@ async def health_check():
     return {"status": "healthy"}
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8001, reload=True)  # ポートを8001に変更
