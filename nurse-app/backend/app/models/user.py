@@ -1,6 +1,8 @@
 # このファイルはユーザーモデルを定義します
+
 from sqlalchemy import Boolean, Column, Integer, String
 from sqlalchemy.orm import relationship
+
 from app.database import Base
 
 class User(Base):
@@ -15,13 +17,8 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     is_admin = Column(Boolean, default=False)
 
-    # リレーションシップ - 外部キーを明示的に指定
-    injections = relationship("Injection", 
-                             foreign_keys="Injection.created_by_id", 
-                             back_populates="created_by_user")
-    treatments = relationship("Treatment", 
-                             back_populates="created_by_user")
-    nursing_plans = relationship("NursingPlan", 
-                                back_populates="created_by_user")
-    nursing_records = relationship("NursingRecord", 
-                                  back_populates="created_by_user")
+    # リレーションシップ
+    injections = relationship("Injection", back_populates="created_by_user")
+    treatments = relationship("Treatment", back_populates="created_by_user")
+    nursing_plans = relationship("NursingPlan", back_populates="created_by_user")
+    nursing_records = relationship("NursingRecord", back_populates="created_by_user")
